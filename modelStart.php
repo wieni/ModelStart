@@ -38,15 +38,18 @@ $teasers[] = 'taxonomy_term';
 $modelBundles = getAllBundles($models);
 
 // One off files.
+// These are files that are not link to a type/bundle and just need to be made once.
 $paragraph_file = $module_directory . "templates/components/paragraph.html.twig";
 $wmcontent_file = $module_directory . "templates/components/wmcontent.html.twig";
 $imgix_file = $module_directory . "templates/components/imgix-image.html.twig";
 $basetrait_file = $module_directory . "src/Entity/Traits/BaseModelTrait.php";
 
+
+// Get the templates.
 $templates = importTemplates();
 
 
-// Loop through it
+// Loop through all the bundles.
 foreach ($modelBundles as $type => $bundles) {
     // Set an upper case clean type.
     $utype = str_replace(" ", "", ucwords(str_replace("_", " ", $type)));
@@ -76,6 +79,7 @@ foreach ($modelBundles as $type => $bundles) {
         $fields = getFields($type, $bundle);
         $fields_content = "";
         foreach ($fields as $field) {
+            // Loop each field and make a getter function.
             $ufield = str_replace("field_", "", $field);
             $ufield = str_replace(" ", "", ucwords(str_replace("_", " ", $ufield)));
 
@@ -88,9 +92,8 @@ foreach ($modelBundles as $type => $bundles) {
         }
         $replacements['fields'] = $fields_content;
 
+        // Write it out.
         writeFile($model_file, 'model', $replacements);
-
-
 
         // Ok no let's do the twig.
         // First the easy replacements.
@@ -100,6 +103,7 @@ foreach ($modelBundles as $type => $bundles) {
         $fields = getFields($type, $bundle);
         $fields_content = "";
         foreach ($fields as $field) {
+            // Loop through each field and call the getter.
             $ufield = str_replace("field_", "", $field);
             $ufield = str_replace(" ", "", ucwords(str_replace("_", " ", $ufield)));
 
@@ -113,8 +117,8 @@ foreach ($modelBundles as $type => $bundles) {
         }
         $replacements['fields'] = $fields_content;
 
+        // Write it out.
         writeFile($twig_file, 'twig', $replacements);
-
 
         // Ok we make a controller for this.
         if (in_array($type, $controllers)) {
@@ -139,11 +143,11 @@ foreach ($modelBundles as $type => $bundles) {
 }
 
 // Ok now we need to create the one off files.
-
 writeFile($paragraph_file, 'paragraph', []);
 writeFile($wmcontent_file, 'wmcontent', []);
 writeFile($imgix_file, 'imgix', []);
 
+// The base trait has a replace ment.
 $replacements = [];
 $replacements['module'] = $module;
 writeFile($basetrait_file, 'basetrait', $replacements);
@@ -449,8 +453,6 @@ trait BaseModelTrait
 }
 
 EOT;
-
-
 
 
     return $templates;
