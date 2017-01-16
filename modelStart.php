@@ -16,15 +16,7 @@ $modules_root = "/modules/custom/";
 $module_directory = $root . $modules_root . $module . "/";
 
 
-$templates = importTemplates();
-
-
-$overwrite_options = array(
-    '1' => 'Yes, overwrite this file with new content that I probably will not like.',
-    '2' => 'Output the content to the screen so that I can copy and paste.',
-);
-
-// We are going to make twigs for these types and bundles.
+// We are going to make models and twigs for these types and bundles.
 $models = [];
 $models[] = 'node';
 $models[] = 'taxonomy_term';
@@ -40,6 +32,15 @@ $controllers[] = 'taxonomy_term';
 // Get all the bundles for the types we are on.
 $modelBundles = getAllBundles($models);
 
+// One off files.
+$paragraph_file = $module_directory . "templates/components/paragraph.html.twig";
+$wmcontent_file = $module_directory . "templates/components/wmcontent.html.twig";
+$imgix_file = $module_directory . "templates/components/imgix-image.html.twig";
+$basetrait_file = $module_directory . "src/Entity/Traits/BaseModelTrait.php";
+
+$templates = importTemplates();
+
+
 // Loop through it
 foreach ($modelBundles as $type => $bundles) {
 
@@ -48,6 +49,7 @@ foreach ($modelBundles as $type => $bundles) {
 
     // Loop the bundles.
     foreach ($bundles as $bundle) {
+
         // Set an upper case clean bundle name.
         $ubundle = str_replace(" ", "", ucwords(str_replace("_", " ", $bundle)));
 
@@ -55,13 +57,6 @@ foreach ($modelBundles as $type => $bundles) {
         $model_file = $module_directory . "src/Entity/" . $utype . "/" . $ubundle . ".php";
         $controller_file = $module_directory . "src/Controller/" . $utype . "/" . $ubundle . "Controller.php";
         $twig_file = $module_directory . "templates/" . $type . "/" . $bundle . "/show.html.twig";
-
-        // Make sure that we can overwrite or whatever.
-        $good_to_write = true;
-        if (file_exists($model_file)) {
-            drush_set_error('The file: ' . $model_file . " exists already!");
-            $good_to_write = drush_choice($overwrite_options, 'Do you want to overwrite?');
-        }
 
         // Hey let's write out the model.
         // First the easy replacements.
@@ -86,20 +81,10 @@ foreach ($modelBundles as $type => $bundles) {
         }
         $replacements['fields'] = $fields_content;
 
-        $content = replaceSet($replacements, $templates['model']);
-        if ($good_to_write == 1) {
-            writeFile($model_file, $content);
-        } elseif ($good_to_write == 2) {
-            drush_print($content);
-        }
+        writeFile($model_file, 'model', $replacements);
 
-        // Make sure that we can overwrite or whatever.
-        $good_to_write = true;
-        if (file_exists($twig_file)) {
-            drush_set_error('The file: ' . $twig_file . " exists already!");
-            $good_to_write = drush_choice($overwrite_options, 'Do you want to overwrite?');
-        }
 
+        $replacements = [];
         // Ok no let's do the twig.
         // First the easy replacements.
         $replacements['bundle'] = $bundle;
@@ -120,22 +105,11 @@ foreach ($modelBundles as $type => $bundles) {
         }
         $replacements['fields'] = $fields_content;
 
-        $content = replaceSet($replacements, $templates['twig']);
-        if ($good_to_write == 1) {
-            writeFile($twig_file, $content);
-        } elseif ($good_to_write == 2) {
-            drush_print($content);
-        }
+        writeFile($twig_file, 'twig', $replacements);
+
 
         // Ok we make a controller for this.
         if (in_array($type, $controllers)) {
-            // Make sure that we can overwrite or whatever.
-            $good_to_write = true;
-            if (file_exists($controller_file)) {
-                drush_set_error('The file: ' . $controller_file . " exists already!");
-                $good_to_write = drush_choice($overwrite_options, 'Do you want to overwrite?');
-            }
-
             $replacements = [];
             $replacements['utype'] = $utype;
             $replacements['type'] = $type;
@@ -143,17 +117,20 @@ foreach ($modelBundles as $type => $bundles) {
             $replacements['bundle'] = $bundle;
             $replacements['module'] = $module;
 
-            $content = replaceSet($replacements, $templates['controller']);
-            if ($good_to_write == 1) {
-                writeFile($controller_file, $content);
-            } elseif ($good_to_write == 2) {
-                drush_print($content);
-            }
+            writeFile($controller_file, 'controller', $replacements);
         }
     }
 }
 
+// Ok now we need to create the one off files.
 
+writeFile($paragraph_file, 'paragraph', []);
+writeFile($wmcontent_file, 'wmcontent', []);
+writeFile($imgix_file, 'imgix', []);
+
+$replacements = [];
+$replacements['module'] = $module;
+writeFile($basetrait_file, 'basetrait', $replacements);
 
 
 
@@ -239,16 +216,34 @@ function getAllBundles($types)
 }
 
 
-function writeFile($file, $content)
+function writeFile($file, $template, $replacements)
 {
-    // Create the path if needed.
-    $dir = dirname($file);
-    if (!file_exists($dir)) {
-        mkdir($dir, 0755, true);
+
+    $templates = importTemplates();
+
+    $overwrite_options = array(
+        '1' => 'Yes, overwrite this file with new content that I probably will not like.',
+        '2' => 'Output the content to the screen so that I can copy and paste.',
+    );
+
+    $good_to_write = true;
+    if (file_exists($file)) {
+        drush_set_error('The file: ' . $file . " exists already!");
+        $good_to_write = drush_choice($overwrite_options, 'Do you want to overwrite?');
     }
 
-    // Write out the file.
-    file_put_contents($file, $content);
+    $content = replaceSet($replacements, $templates[$template]);
+    if ($good_to_write == 1) {
+        // Create the path if needed.
+        $dir = dirname($file);
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        // Write out the file.
+        file_put_contents($file, $content);
+    } elseif ($good_to_write == 2) {
+        drush_print($content);
+    }
 }
 
 
@@ -346,6 +341,89 @@ class %ubundle%Controller extends ControllerBase
         return \$this->view('show', compact('%bundle%'));
     }
 }
+EOT;
+
+    $templates['imgix'] = <<<EOT
+<div class="imgix-image preset-{{ preset }}">
+    <img src="{{ imgix(image.getFile(), preset) }}" alt="{{ image.getTitle() }}" title="{{ image.getTitle() }}" />
+    {% if image.getCaption() is not empty %}
+        <span class="caption">{{  image.getCaption() }}</span>
+    {% endif %}
+</div>
+EOT;
+
+    $templates['paragraph'] = <<<EOT
+    <div class="paragraph">
+        {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' with {
+        'paragraph': paragraph
+        } %}  
+    </div>
+EOT;
+
+    $templates['wmcontent'] = <<<EOT
+<div class="wmcontent">
+    {% for paragraph in wmcontent %}
+      {% include '@wmcustom/components/paragraph.html.twig' with {
+      'paragraph': paragraph
+      } %}
+    {% endfor %}
+</div>
+EOT;
+
+
+    $templates['basetrait'] = <<<EOT
+<?php
+namespace Drupal\%module%\Entity\Traits;
+
+use Drupal\imgix\Plugin\Field\FieldType\ImgixFieldType;
+use Drupal\wmcontent\WmContentManager;
+
+/**
+ * Class BaseModelTrait
+ * @package Drupal\%module%\Entity\Traits
+ */
+trait BaseModelTrait
+{
+    /**
+     * Load an imgix image to a simple array.
+     * @param \$fieldName
+     * @return ImgixFieldType
+     */
+    protected function loadImgixImage(\$fieldName)
+    {
+        if (\$this->hasField(\$fieldName) && !\$this->get(\$fieldName)->isEmpty()) {
+            /** @var ImgixFieldType \$field */
+            \$field = \$this->get(\$fieldName)->first();
+            return \$field;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * @param \$fieldName
+     * @return array|\Drupal\Core\Entity\EntityInterface[]
+     */
+    protected function loadWmContent(\$fieldName)
+    {
+        /** @var WmContentManager \$wmcontent */
+        \$wmcontent = \Drupal::service('wmcontent.manager');
+        \$paragraphs = \$wmcontent->getContent(\$this, \$fieldName);
+        return \$paragraphs;
+    }
+
+    /**
+     * Return the url for this.
+     * @return mixed
+     */
+    public function getUrl()
+    {
+        return \$this->url();
+    }
+
+
+}
+
 EOT;
 
 
