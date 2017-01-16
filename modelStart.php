@@ -29,6 +29,11 @@ $controllers = [];
 $controllers[] = 'node';
 $controllers[] = 'taxonomy_term';
 
+// We are going to make teasers for these.
+$teasers = [];
+$teasers[] = 'node';
+$teasers[] = 'taxonomy_term';
+
 // Get all the bundles for the types we are on.
 $modelBundles = getAllBundles($models);
 
@@ -43,20 +48,22 @@ $templates = importTemplates();
 
 // Loop through it
 foreach ($modelBundles as $type => $bundles) {
-
     // Set an upper case clean type.
     $utype = str_replace(" ", "", ucwords(str_replace("_", " ", $type)));
 
     // Loop the bundles.
     foreach ($bundles as $bundle) {
-
         // Set an upper case clean bundle name.
         $ubundle = str_replace(" ", "", ucwords(str_replace("_", " ", $bundle)));
 
         // Get the model file.
         $model_file = $module_directory . "src/Entity/" . $utype . "/" . $ubundle . ".php";
+        // Controller file.
         $controller_file = $module_directory . "src/Controller/" . $utype . "/" . $ubundle . "Controller.php";
+        // Twig File.
         $twig_file = $module_directory . "templates/" . $type . "/" . $bundle . "/show.html.twig";
+        // Twig Teaser File.
+        $twig_teaser_file = $module_directory . "templates/" . $type . "/" . $bundle . "/teaser.html.twig";
 
         // Hey let's write out the model.
         // First the easy replacements.
@@ -84,9 +91,10 @@ foreach ($modelBundles as $type => $bundles) {
         writeFile($model_file, 'model', $replacements);
 
 
-        $replacements = [];
+
         // Ok no let's do the twig.
         // First the easy replacements.
+        $replacements = [];
         $replacements['bundle'] = $bundle;
         // Now the fields.
         $fields = getFields($type, $bundle);
@@ -110,6 +118,7 @@ foreach ($modelBundles as $type => $bundles) {
 
         // Ok we make a controller for this.
         if (in_array($type, $controllers)) {
+            // Pretty easy just find replace.
             $replacements = [];
             $replacements['utype'] = $utype;
             $replacements['type'] = $type;
@@ -118,6 +127,13 @@ foreach ($modelBundles as $type => $bundles) {
             $replacements['module'] = $module;
 
             writeFile($controller_file, 'controller', $replacements);
+        }
+
+        // Ok we make a teaser for this.
+        if (in_array($type, $teasers)) {
+            $replacements = [];
+            $replacements['bundle'] = $bundle;
+            writeFile($twig_teaser_file, 'twig_teaser', $replacements);
         }
     }
 }
@@ -315,6 +331,14 @@ EOT;
     // Twig file base.
     $templates['twig'] = <<<EOT
 %fields%
+EOT;
+
+    $templates['twig_teaser'] = <<<EOT
+<div class="teaser">
+    <a href="{{ %bundle%.getUrl() }}">
+        {{ %bundle%.getTitle() }}
+    </a>
+</div>
 EOT;
 
     $templates['twig_field'] = <<<EOT
