@@ -72,7 +72,9 @@ foreach ($modelBundles as $type => $bundles) {
         // First the easy replacements.
         $replacements = [];
         $replacements['utype'] = $utype;
+        $replacements['type'] = $type;
         $replacements['ubundle'] = $ubundle;
+        $replacements['bundle'] = $bundle;
         $replacements['module'] = $module;
 
         // Now the fields.
@@ -98,7 +100,11 @@ foreach ($modelBundles as $type => $bundles) {
         // Ok no let's do the twig.
         // First the easy replacements.
         $replacements = [];
+        $replacements['utype'] = $utype;
+        $replacements['type'] = $type;
+        $replacements['ubundle'] = $ubundle;
         $replacements['bundle'] = $bundle;
+        $replacements['module'] = $module;
         // Now the fields.
         $fields = getFields($type, $bundle);
         $fields_content = "";
@@ -118,7 +124,13 @@ foreach ($modelBundles as $type => $bundles) {
         $replacements['fields'] = $fields_content;
 
         // Write it out.
-        writeFile($twig_file, 'twig', $replacements);
+        // Handle Tax specially.
+        if ($type == 'taxnonomy_term') {
+            writeFile($twig_file, 'twig_taxonomy', $replacements);
+        } else {
+            writeFile($twig_file, 'twig', $replacements);
+        }
+
 
         // Ok we make a controller for this.
         if (in_array($type, $controllers)) {
@@ -137,7 +149,13 @@ foreach ($modelBundles as $type => $bundles) {
         if (in_array($type, $teasers)) {
             $replacements = [];
             $replacements['bundle'] = $bundle;
-            writeFile($twig_teaser_file, 'twig_teaser', $replacements);
+
+            // Handle tax specially.
+            if ($type == 'taxonomy_term') {
+                writeFile($twig_teaser_file, 'twig_teaser_taxonomy', $replacements);
+            } else {
+                writeFile($twig_teaser_file, 'twig_teaser', $replacements);
+            }
         }
     }
 }
@@ -147,7 +165,7 @@ writeFile($paragraph_file, 'paragraph', []);
 writeFile($wmcontent_file, 'wmcontent', []);
 writeFile($imgix_file, 'imgix', []);
 
-// The base trait has a replace ment.
+// The base trait has a replacement.
 $replacements = [];
 $replacements['module'] = $module;
 writeFile($basetrait_file, 'basetrait', $replacements);
@@ -175,6 +193,13 @@ function replaceSet($replacements, $subject)
 function getFields($type, $bundle)
 {
     $except = [];
+    $except[] = 'title';
+    $except[] = 'langcode';
+    $except[] = 'tid';
+    $except[] = 'id';
+    $except[] = 'name';
+    $except[] = 'uuid';
+    $except[] = 'nid';
     $except[] = 'wmcontent_parent';
     $except[] = 'wmcontent_container';
     $except[] = 'wmcontent_parent_type';
@@ -190,6 +215,18 @@ function getFields($type, $bundle)
     $except[] = 'type';
     $except[] = 'sticky';
     $except[] = 'promote';
+    $except[] = 'vid';
+    $except[] = 'changed';
+    $except[] = 'created';
+
+
+    if ($type == 'node') {
+
+    }
+
+    if ($type == 'taxonomy_term') {
+        $except[] = 'weight';
+    }
 
 
     // Get the entity field manager...
@@ -334,10 +371,32 @@ EOT;
 
     // Twig file base.
     $templates['twig'] = <<<EOT
+{# @var %bundle% \Drupal\%module%\Entity\%utype%\%ubundle% #}
+<div>
+    {{ %bundle%.getTitle() }}
+</div>
+%fields%
+EOT;
+
+    $templates['twig_taxonomy_term'] = <<<EOT
+{# @var %bundle% \Drupal\%module%\Entity\%utype%\%ubundle% #}
+<div>
+    {{ %bundle%.getName() }}
+</div>
 %fields%
 EOT;
 
     $templates['twig_teaser'] = <<<EOT
+{# @var %bundle% \Drupal\%module%\Entity\%utype%\%ubundle% #}
+<div class="teaser">
+    <a href="{{ %bundle%.getUrl() }}">
+        {{ %bundle%.getTitle() }}
+    </a>
+</div>
+EOT;
+
+    $templates['twig_teaser_taxonomy'] = <<<EOT
+{# @var %bundle% \Drupal\%module%\Entity\%utype%\%ubundle% #}
 <div class="teaser">
     <a href="{{ %bundle%.getUrl() }}">
         {{ %bundle%.getTitle() }}
@@ -381,10 +440,8 @@ EOT;
 EOT;
 
     $templates['paragraph'] = <<<EOT
-    <div class="paragraph">
-        {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' with {
-        'paragraph': paragraph
-        } %}  
+    <div class="paragraph paragraph--{{ pargraph.getWmcontentSize() }} paragraph--{{ paragraph.getWmcontentAlignment() }} ">
+        {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' %}  
     </div>
 EOT;
 
