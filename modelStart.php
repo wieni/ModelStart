@@ -1,7 +1,31 @@
 #!/usr/local/bin/drush
 <?php
 
+// STUFF YOU NEED TO WORRY ABOUT //
 
+// Models, we will make models for everything in here.
+$models = [];
+$models[] = 'node';
+$models[] = 'taxonomy_term';
+$models[] = 'paragraph';
+$models[] = 'item';
+$models[] = 'subcontent';
+
+// We are going to make controllers for these types.
+$controllers = [];
+$controllers[] = 'node';
+$controllers[] = 'taxonomy_term';
+
+// We are going to make teasers for these types.
+$teasers = [];
+$teasers[] = 'node';
+$teasers[] = 'taxonomy_term';
+
+// END STUFF YOU NEED TO WORRY ABOUT //
+
+// Now it's my turn.
+
+// Super star DJs here we go!
 // First thing first, get the dev module...
 $module = drush_prompt('What is the machine name of the dev module', 'wmcustom');
 $umodule = ucwords($module);
@@ -16,38 +40,19 @@ $modules_root = "/modules/custom/";
 $module_directory = $root . $modules_root . $module . "/";
 
 
-// We are going to make models and twigs for these types and bundles.
-$models = [];
-$models[] = 'node';
-$models[] = 'taxonomy_term';
-$models[] = 'paragraph';
-$models[] = 'item';
-$models[] = 'subcontent';
-
-// We are going to make controllers for these types and bundles.
-$controllers = [];
-$controllers[] = 'node';
-$controllers[] = 'taxonomy_term';
-
-// We are going to make teasers for these.
-$teasers = [];
-$teasers[] = 'node';
-$teasers[] = 'taxonomy_term';
-
-// Get all the bundles for the types we are on.
-$modelBundles = getAllBundles($models);
-
 // One off files.
-// These are files that are not link to a type/bundle and just need to be made once.
+// These are files that are not linked to a type/bundle and just need to be made once.
+// You can add more here but then make sure to write them lower at the end of the script.
 $paragraph_file = $module_directory . "templates/components/paragraph.html.twig";
 $wmcontent_file = $module_directory . "templates/components/wmcontent.html.twig";
 $imgix_file = $module_directory . "templates/components/imgix-image.html.twig";
 $basetrait_file = $module_directory . "src/Entity/Traits/BaseModelTrait.php";
 
+// Get all the bundles for the types we are on.
+$modelBundles = getAllBundles($models);
 
 // Get the templates.
 $templates = importTemplates();
-
 
 // Loop through all the bundles.
 foreach ($modelBundles as $type => $bundles) {
@@ -86,6 +91,7 @@ foreach ($modelBundles as $type => $bundles) {
             $ufield = str_replace(" ", "", ucwords(str_replace("_", " ", $ufield)));
 
             $field_replacements = [];
+            $field_replacements['ubundle'] = $ubundle;
             $field_replacements['ufield'] = $ufield;
             $field_replacements['field'] = $field;
 
@@ -171,8 +177,22 @@ $replacements['module'] = $module;
 writeFile($basetrait_file, 'basetrait', $replacements);
 
 
+// THE END...
+
 
 /**
+ *  __   __  _______  ___      _______  _______  ______    _______
+ * |  | |  ||       ||   |    |       ||       ||    _ |  |       |
+ * |  |_|  ||    ___||   |    |    _  ||    ___||   | ||  |  _____|
+ * |       ||   |___ |   |    |   |_| ||   |___ |   |_||_ | |_____
+ * |       ||    ___||   |___ |    ___||    ___||    __  ||_____  |
+ * |   _   ||   |___ |       ||   |    |   |___ |   |  | | _____| |
+ * |__| |__||_______||_______||___|    |_______||___|  |_||_______|
+**/
+
+/**
+ * Multiple str_replace().
+ *
  * @param $replacements
  * @param $subject
  * @return mixed
@@ -186,12 +206,15 @@ function replaceSet($replacements, $subject)
 }
 
 /**
+ * Get all the fields of this type/bundle.
+ *
  * @param $type
  * @param $bundle
  * @return array
  */
 function getFields($type, $bundle)
 {
+    // Do not consider these fields.
     $except = [];
     $except[] = 'title';
     $except[] = 'langcode';
@@ -219,15 +242,15 @@ function getFields($type, $bundle)
     $except[] = 'changed';
     $except[] = 'created';
 
-
+    // Do not consider these fields specifically for this type.
     if ($type == 'node') {
-
+        // Nothing yet.
     }
 
+    // Do not consider these fields specifically for this type.
     if ($type == 'taxonomy_term') {
         $except[] = 'weight';
     }
-
 
     // Get the entity field manager...
     $entityFieldManager = \Drupal::service('entity_field.manager');
@@ -246,6 +269,8 @@ function getFields($type, $bundle)
 }
 
 /**
+ * Get the root dir of the drupal.
+ *
  * @return string
  */
 function getRoot()
@@ -254,6 +279,8 @@ function getRoot()
 }
 
 /**
+ * Go through the types and get all the sub bundles.
+ *
  * @param $types
  * @return array
  */
@@ -273,6 +300,13 @@ function getAllBundles($types)
 }
 
 
+/**
+ * Write a file using template and the replacements.
+ *
+ * @param $file
+ * @param $template
+ * @param $replacements
+ */
 function writeFile($file, $template, $replacements)
 {
 
@@ -364,7 +398,7 @@ EOT;
      */
     public function get%ufield%()
     {
-        return "TODO: Model function get%ufield%()";
+        return "TODO: %ubundle% Model function get%ufield%()";
     }
 
 EOT;
@@ -508,7 +542,6 @@ trait BaseModelTrait
 
 
 }
-
 EOT;
 
 
