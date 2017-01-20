@@ -45,6 +45,8 @@ $module_directory = $root . $modules_root . $module . "/";
 // You can add more here but then make sure to write them lower at the end of the script.
 $paragraph_file = $module_directory . "templates/components/paragraph.html.twig";
 $wmcontent_file = $module_directory . "templates/components/wmcontent.html.twig";
+$button_file = $module_directory . "templates/components/button.html.twig";
+$teasers_file = $module_directory . "templates/components/teasers.html.twig";
 $imgix_file = $module_directory . "templates/components/imgix-image.html.twig";
 $basetrait_file = $module_directory . "src/Entity/Traits/BaseModelTrait.php";
 
@@ -169,12 +171,18 @@ foreach ($modelBundles as $type => $bundles) {
 // Ok now we need to create the one off files.
 writeFile($paragraph_file, 'paragraph', []);
 writeFile($wmcontent_file, 'wmcontent', []);
+writeFile($button_file, 'button', []);
 writeFile($imgix_file, 'imgix', []);
 
 // The base trait has a replacement.
 $replacements = [];
 $replacements['module'] = $module;
 writeFile($basetrait_file, 'basetrait', $replacements);
+
+// The teasers has a replacement.
+$replacements = [];
+$replacements['module'] = $module;
+writeFile($teasers_file, 'teasers', $replacements);
 
 
 // THE END...
@@ -489,6 +497,23 @@ EOT;
 </div>
 EOT;
 
+    $templates['button'] = <<<EOT
+{% set classes = [
+  'btn',
+]|merge(class ? class : []) %}
+
+<a {% if external %} target="_blank" {% endif %} href="{{ link }}" class="{{ classes|join(' ') }}">{{ text }}</a>
+EOT;
+
+    $templates['teasers'] = <<<EOT
+<div>
+    {% for item in items %}
+        {% set key = item.bundle() %}
+        {% set hash = { (key): item } %}
+        {% include '@%module%/' ~ item.getEntityTypeId() ~ '/' ~ item.bundle() ~ '/teaser.html.twig' with hash %}
+    {% endfor %}
+</div>
+EOT;
 
     $templates['basetrait'] = <<<EOT
 <?php
