@@ -482,7 +482,12 @@ EOT;
 EOT;
 
     $templates['paragraph'] = <<<EOT
-    <div class="paragraph paragraph--{{ pargraph.getWmcontentSize() }} paragraph--{{ paragraph.getWmcontentAlignment() }} ">
+    {% set classes = [
+        'pargraph',
+        'paragraph-size-' ~ pargraph.getWmcontentSize(),
+        'paragraph-size-' ~ pargraph.getWmcontentAlignment(),
+    ] %}
+    <div class="{{ classes|join(' ') }}">
         {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' %}  
     </div>
 EOT;
