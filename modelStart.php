@@ -393,7 +393,7 @@ class %ubundle% extends %utype% implements WmModelInterface
 {
     use WmModel;
     use BaseModelTrait;
-    
+
     %fields%
 }
 EOT;
@@ -488,7 +488,7 @@ EOT;
         'paragraph-size-' ~ pargraph.getWmcontentAlignment(),
     ] %}
     <div class="{{ classes|join(' ') }}">
-        {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' %}  
+        {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' %}
     </div>
 EOT;
 
@@ -567,7 +567,7 @@ trait BaseModelTrait
      */
     public function getUrl()
     {
-        return \$this->url();
+        return \$this->url('canonical', ['absolute' => true]);
     }
 
 
