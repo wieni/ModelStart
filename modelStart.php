@@ -49,6 +49,7 @@ $button_file = $module_directory . "templates/components/button.html.twig";
 $teasers_file = $module_directory . "templates/components/teasers.html.twig";
 $imgix_file = $module_directory . "templates/components/imgix-image.html.twig";
 $basetrait_file = $module_directory . "src/Entity/Traits/BaseModelTrait.php";
+$abstract_controller_file = $module_directory . "src/Controller/AbstractController.php";
 
 // Get all the bundles for the types we are on.
 $modelBundles = getAllBundles($models);
@@ -168,21 +169,18 @@ foreach ($modelBundles as $type => $bundles) {
     }
 }
 
-// Ok now we need to create the one off files.
-writeFile($paragraph_file, 'paragraph', []);
-writeFile($wmcontent_file, 'wmcontent', []);
-writeFile($button_file, 'button', []);
-writeFile($imgix_file, 'imgix', []);
-
 // The base trait has a replacement.
 $replacements = [];
 $replacements['module'] = $module;
+// Ok now we need to create the one off files.
+writeFile($paragraph_file, 'paragraph', $replacements);
+writeFile($abstract_controller_file, 'abstractcontroller', $replacements);
+writeFile($wmcontent_file, 'wmcontent', $replacements);
 writeFile($basetrait_file, 'basetrait', $replacements);
-
-// The teasers has a replacement.
-$replacements = [];
-$replacements['module'] = $module;
 writeFile($teasers_file, 'teasers', $replacements);
+
+writeFile($button_file, 'button', []);
+writeFile($imgix_file, 'imgix', []);
 
 
 // THE END...
@@ -379,7 +377,7 @@ function importTemplates()
     $templates['model'] = <<<EOT
 <?php
 
-namespace Drupal\wmcustom\Entity\%utype%;
+namespace Drupal\%module%\Entity\%utype%;
 
 use Drupal\wmmodel\Entity\Interfaces\WmModelInterface;
 use Drupal\wmmodel\Entity\Traits\WmModel;
@@ -387,7 +385,7 @@ use Drupal\%module%\Entity\Traits\BaseModelTrait;
 
 /**
  * Class %ubundle%
- * @package Drupal\wmcustom\Entity\%utype%
+ * @package Drupal\%module%\Entity\%utype%
  */
 class %ubundle% extends %utype% implements WmModelInterface
 {
@@ -458,16 +456,19 @@ EOT;
 <?php
 namespace Drupal\%module%\Controller\%utype%;
 
-use Drupal\wmcontroller\Controller\ControllerBase;
+use Drupal\%module%\Controller\AbstractController;
 use Drupal\%module%\Entity\%utype%\%ubundle%;
 
-class %ubundle%Controller extends ControllerBase
+class %ubundle%Controller extends AbstractController
 {
     protected \$templateDir = '%type%.%bundle%';
 
     public function show(%ubundle% \$%bundle%)
     {
-        return \$this->view('show', compact('%bundle%'));
+        // Add the og Tags
+        \$this->applyOgData(\$%bundle%->getOgData());
+
+        return \$this->view('show', compact('%bundle%'))->setEntity(\$%bundle%);
     }
 }
 EOT;
@@ -488,14 +489,14 @@ EOT;
         'paragraph-size-' ~ pargraph.getWmcontentAlignment(),
     ] %}
     <div class="{{ classes|join(' ') }}">
-        {% include '@wmcustom/paragraph/'~ paragraph.bundle() ~'/show.html.twig' %}
+        {% include '@%module%/paragraph/'~ paragraph.bundle() ~'/show.html.twig' %}
     </div>
 EOT;
 
     $templates['wmcontent'] = <<<EOT
 <div class="wmcontent">
     {% for paragraph in wmcontent %}
-      {% include '@wmcustom/components/paragraph.html.twig' with {
+      {% include '@%module%/components/paragraph.html.twig' with {
       'paragraph': paragraph
       } %}
     {% endfor %}
@@ -570,8 +571,226 @@ trait BaseModelTrait
         return \$this->url('canonical', ['absolute' => true]);
     }
 
+    /**
+     * Give the base OG data
+     * @return array
+     */
+    protected function defaultOgData()
+    {
+        $og = [];
+
+        $og['og:title'] = [
+            'property' => 'og:title',
+            'content' => \$this->getLabel(),
+        ];
+        $og['og:url'] = [
+            'property' => 'og:url',
+            'content' => \$this->getUrl(),
+        ];
+        $og['og:description'] = [
+            'property' => 'og:description',
+            'content' => '',
+        ];
+        $og['og:image'] = [
+            'property' => 'og:image',
+            'content' => _%module%_og_image(),
+        ];
+        $og['og:type'] = [
+            'property' => 'og:type',
+            'content' => 'article',
+        ];
+
+        return $og;
+    }
+
+    /**
+     * This should be overwritten for each model in the site.
+     *
+     * However we return basic stuff for now.
+     * @return array
+     */
+    public function getOgData()
+    {
+        return \$this->defaultOgData();
+    }
+
 
 }
+EOT;
+
+    $templates['abstractcontroller'] = <<<EOT
+<?php
+
+namespace Drupal\%module%\Controller;
+
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Entity\Entity;
+use Drupal\wmcontroller\Controller\ControllerBase;
+use Drupal\%module%\Service\Search\PageMap;
+use Drupal\Core\Url;
+
+/**
+ * Class AbstractController
+ * @package Drupal\%module%\Controller
+ */
+abstract class AbstractController extends ControllerBase
+{
+    /**
+     * @var ogData
+     */
+    protected \$ogData;
+
+    /**
+     * @var array
+     */
+    private \$cacheTags = [];
+
+    /**
+     * @param string $template
+     * @param array $data
+     * @return \Drupal\wmcontroller\ViewBuilder\ViewBuilder
+     */
+    protected function view(\$template = '', \$data = [])
+    {
+        \$builder =  parent::view(\$template, \$data);
+
+        // Build the OG Tags if they have been set.
+        if (is_array(\$this->ogData) && count(\$this->ogData)) {
+            // Loop the data.
+            foreach (\$this->ogData as \$name => \$data) {
+                // Create an element for each data.
+                \$el = [
+                    '#tag' => 'meta',
+                    '#attributes' => [],
+                ];
+
+                // Add the property and content hopefully.
+                foreach (\$data as \$attribute => \$value) {
+                    \$el['#attributes'][\$attribute] = _%module%_truncate(strip_tags(trim(\$value)), 160);
+                }
+
+                // Add it to the view builder.
+                \$builder->addHeadElement(\$el);
+            }
+        }
+
+        \$this->addCacheTag('wmsettings');
+        if (!empty(\$this->cacheTags)) {
+            \$builder->addCacheTags(\$this->cacheTags);
+        }
+
+        return \$builder;
+    }
+
+    /**
+     * @param Entity[] $entities
+     */
+    protected function addCacheTagsFromEntities(array $entities)
+    {
+        foreach (\$entities as \$entity) {
+            \$this->cacheTags = Cache::mergeTags(
+                \$this->cacheTags,
+                \$entity->getCacheTags()
+            );
+        }
+    }
+
+    /**
+     * @param string[]|array $tags
+     */
+    protected function addCacheTags(array \$tags)
+    {
+        \$this->cacheTags = Cache::mergeTags(\$this->cacheTags, \$tags);
+    }
+
+    /**
+     * @param string $tag
+     */
+    protected function addCacheTag(string $tag)
+    {
+        \$this->cacheTags = Cache::mergeTags(\$this->cacheTags, [\$tag]);
+    }
+
+    /**
+     * Give the base OG data and set the property.
+     * @return array
+     */
+    protected function defaultOgData()
+    {
+        \$wmsettings = \Drupal::service('wmsettings.settings');
+        \$global = \$wmsettings->read('global');
+        \$fb_app_id = \$global->get('fb_app_id')->value;
+        \$local = "nl_BE";
+        \$image = _%module%_og_image();
+        \$title = \$global->get('og_title')->value;
+        \$description = \$global->get('og_description')->value;
+
+        \$og = [];
+
+        \$og['og:title'] = [
+            'property' => 'og:title',
+            'content' => \$title,
+        ];
+        \$og['og:url'] = [
+            'property' => 'og:url',
+            'content' => Url::fromRoute('<front>', [], ['absolute' => true])->toString(),
+        ];
+        \$og['og:description'] = [
+            'property' => 'og:description',
+            'content' => \$description,
+        ];
+        \$og['og:image'] = [
+            'property' => 'og:image',
+            'content' => \$image,
+        ];
+        \$og['og:image:width'] = [
+            'property' => 'og:image:width',
+            'content' => '1200',
+        ];
+        \$og['og:image:height'] = [
+            'property' => 'og:image:height',
+            'content' => '630',
+        ];
+        \$og['og:site_name'] = [
+            'property' => 'og:site_name',
+            'content' => \Drupal::config('system.site')->get('name'),
+        ];
+        \$og['fb:app_id'] = [
+            'property' => 'fb:app_id',
+            'content' => \$fb_app_id,
+        ];
+        \$og['og:locale'] = [
+            'property' => 'og:locale',
+            'content' => \$local,
+        ];
+        \$og['og:type'] = [
+            'property' => 'og:type',
+            'content' => 'website',
+        ];
+
+        // Put the default into the property.
+        \$this->ogData = \$og;
+
+        // Return the property.
+        return \$this->ogData;
+    }
+
+
+    /**
+     * Apply a set of OG data ONTOP of the default OD data.
+     * @param \$data
+     */
+    public function applyOgData(array \$data = [])
+    {
+        \$this->defaultOgData();
+        foreach (\$this->ogData as \$k => \$v) {
+            if (isset(\$data[\$k])) {
+                \$this->ogData[\$k] = \$data[$k];
+            }
+        }
+    }
+}
+
 EOT;
 
 
