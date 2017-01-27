@@ -683,9 +683,9 @@ abstract class AbstractController extends ControllerBase
     }
 
     /**
-     * @param Entity[] $entities
+     * @param Entity[] \$entities
      */
-    protected function addCacheTagsFromEntities(array $entities)
+    protected function addCacheTagsFromEntities(array \$entities)
     {
         foreach (\$entities as \$entity) {
             \$this->cacheTags = Cache::mergeTags(
@@ -696,7 +696,7 @@ abstract class AbstractController extends ControllerBase
     }
 
     /**
-     * @param string[]|array $tags
+     * @param string[]|array \$tags
      */
     protected function addCacheTags(array \$tags)
     {
@@ -704,7 +704,7 @@ abstract class AbstractController extends ControllerBase
     }
 
     /**
-     * @param string $tag
+     * @param string \$tag
      */
     protected function addCacheTag(string $tag)
     {
